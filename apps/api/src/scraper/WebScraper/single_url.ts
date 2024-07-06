@@ -16,6 +16,7 @@ import { scrapWithFetch } from "./scrapers/fetch";
 import { scrapWithFireEngine } from "./scrapers/fireEngine";
 import { scrapWithPlaywright } from "./scrapers/playwright";
 import { scrapWithScrapingBee } from "./scrapers/scrapingBee";
+import { scrapWithSpider } from "./scrapers/spider";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ const baseScrapers = [
   "playwright",
   "scrapingBeeLoad",
   "fetch",
+  "spider",
 ] as const;
 
 export async function generateRequestParams(
@@ -72,12 +74,15 @@ function getScrapingFallbackOrder(
         return !!process.env.FIRE_ENGINE_BETA_URL;
       case "playwright":
         return !!process.env.PLAYWRIGHT_MICROSERVICE_URL;
+      case "spider":
+        return !!process.env.SPIDER_API_KEY;
       default:
         return true;
     }
   });
 
   let defaultOrder = [
+    "spider",
     "scrapingBee",
     "fire-engine",
     "playwright",
@@ -149,6 +154,14 @@ export async function scrapSingleUrl(
           });
           scraperResponse.text = response.html;
           scraperResponse.screenshot = response.screenshot;
+          scraperResponse.metadata.pageStatusCode = response.pageStatusCode;
+          scraperResponse.metadata.pageError = response.pageError;
+        }
+        break;
+      case "spider":
+        if (process.env.SPIDER_API_KEY) {
+          const response = await scrapWithSpider(url, pageOptions);
+          scraperResponse.text = response.content;
           scraperResponse.metadata.pageStatusCode = response.pageStatusCode;
           scraperResponse.metadata.pageError = response.pageError;
         }
