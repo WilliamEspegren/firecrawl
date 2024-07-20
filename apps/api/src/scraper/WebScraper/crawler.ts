@@ -8,6 +8,7 @@ import { scrapSingleUrl } from "./single_url";
 import robotsParser from "robots-parser";
 import { getURLDepth } from "./utils/maxDepthUtils";
 import { axiosTimeout } from "../../../src/lib/timeout";
+import { Spider } from "@spider-cloud/spider-client";
 
 export class WebCrawler {
   private initialUrl: string;
@@ -24,6 +25,7 @@ export class WebCrawler {
   private generateImgAltText: boolean;
   private allowBackwardCrawling: boolean;
   private allowExternalContentLinks: boolean;
+  private spider: Spider | null = null;
 
   constructor({
     initialUrl,
@@ -34,7 +36,8 @@ export class WebCrawler {
     generateImgAltText = false,
     maxCrawledDepth = 10,
     allowBackwardCrawling = false,
-    allowExternalContentLinks = false
+    allowExternalContentLinks = false,
+    useSpider = false,
   }: {
     initialUrl: string;
     includes?: string[];
@@ -45,6 +48,7 @@ export class WebCrawler {
     maxCrawledDepth?: number;
     allowBackwardCrawling?: boolean;
     allowExternalContentLinks?: boolean;
+    useSpider?: boolean;
   }) {
     this.initialUrl = initialUrl;
     this.baseUrl = new URL(initialUrl).origin;
@@ -59,6 +63,14 @@ export class WebCrawler {
     this.generateImgAltText = generateImgAltText ?? false;
     this.allowBackwardCrawling = allowBackwardCrawling ?? false;
     this.allowExternalContentLinks = allowExternalContentLinks ?? false;
+
+    if (useSpider) {
+      if (process.env.SPIDER_API_KEY) {
+        this.spider = new Spider({apiKey: process.env.SPIDER_API_KEY});
+      } else {
+        console.error("SPIDER_API_KEY is not set");
+      }
+    }
   }
 
   private filterLinks(sitemapLinks: string[], limit: number, maxDepth: number): string[] {

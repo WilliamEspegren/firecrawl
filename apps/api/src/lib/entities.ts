@@ -53,6 +53,8 @@ export type CrawlerOptions = {
   mode?: "default" | "fast"; // have a mode of some sort
   allowBackwardCrawling?: boolean;
   allowExternalContentLinks?: boolean;
+  useSpider?: boolean;
+  spiderApiKey?: string | null;
 }
 
 export type WebScraperOptions = {

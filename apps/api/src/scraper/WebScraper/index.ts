@@ -19,6 +19,7 @@ import { generateCompletions } from "../../lib/LLM-extraction";
 import { getWebScraperQueue } from "../../../src/services/queue-service";
 import { fetchAndProcessDocx } from "./utils/docxProcessor";
 import { getAdjustedMaxDepth, getURLDepth } from "./utils/maxDepthUtils";
+import { Spider } from "@spider-cloud/spider-client";
 
 export class WebScraperDataProvider {
   private bullJobId: string;
@@ -41,6 +42,8 @@ export class WebScraperDataProvider {
   private crawlerMode: string = "default";
   private allowBackwardCrawling: boolean = false;
   private allowExternalContentLinks: boolean = false;
+  private useSpider: boolean = true;
+  private spiderApiKey: string | null = null;
 
   authorize(): void {
     throw new Error("Method not implemented.");
@@ -164,6 +167,9 @@ export class WebScraperDataProvider {
   private async handleCrawlMode(
     inProgress?: (progress: Progress) => void
   ): Promise<Document[]> {
+    if (this.useSpider) {
+      return this.handleSpiderCrawl(inProgress);
+    }
 
     const crawler = new WebCrawler({
       initialUrl: this.urls[0],
@@ -499,6 +505,10 @@ export class WebScraperDataProvider {
     this.ignoreSitemap = options.crawlerOptions?.ignoreSitemap ?? false;
     this.allowBackwardCrawling = options.crawlerOptions?.allowBackwardCrawling ?? false;
     this.allowExternalContentLinks = options.crawlerOptions?.allowExternalContentLinks ?? false;
+    this.useSpider = options.crawlerOptions?.useSpider ?? true;
+    this.spiderApiKey = options.crawlerOptions?.spiderApiKey ?? null;
+
+    console.log("this.crawlerOptions IS ", options.crawlerOptions)
 
     // make sure all urls start with https://
     this.urls = this.urls.map((url) => {
@@ -588,5 +598,42 @@ export class WebScraperDataProvider {
       const url = new URL(document.metadata.sourceURL);
       return getURLDepth(url.toString()) <= this.maxCrawledDepth;
     });
+  }
+
+  private async handleSpiderCrawl(
+    inProgress?: (progress: Progress) => void
+  ): Promise<Document[]> {
+    console.log("THIS IS BEING SCRAPED WITH HANDLE SPIDER CRAWL")
+    const spider = new Spider({ apiKey: this.spiderApiKey });
+    
+    const results = await spider.crawlUrl(this.urls[0], {
+      limit: this.limit,
+      depth: this.maxCrawledDepth,
+      white_list: this.includes,
+      black_list: this.excludes,
+    });
+
+    // Check if results is an array
+    if (!Array.isArray(results)) {
+      console.error('Spider crawl did not return an array of results');
+      return [];
+    }
+
+    console.log("THIS IS THE RESULTS FROM HANDLE SPIDER CRAWL : ", results)
+  
+    // Transform Spider results to match your Document format
+    const documents = results.map(result => ({
+      content: result.content || '',
+      html: this.pageOptions?.includeHtml ? result.content : undefined,
+      markdown: result.content || '',
+      metadata: { 
+        sourceURL: result.url, 
+        pageStatusCode: result.status || 200,
+        // Add other metadata as needed
+      },
+    }));
+
+    console.log("THIS DOCUMENTS ARE FROM HANDLE SPIDER CRAoL : ", documents)
+    return documents
   }
 }
